@@ -28,12 +28,10 @@
   let votes = {};        // { pseudo: themeId }
   let me = localStorage.getItem('soiree_pseudo') || null;
 
-  const authCard = document.getElementById('auth');
-  const mainCard = document.getElementById('main');
-
   // ====== CONNEXION ======
   window.login = () => {
-    const pseudo = document.getElementById('pseudoInput').value.trim();
+    const input = document.getElementById('pseudoInput');
+    const pseudo = input.value.trim();
     if (!pseudo) return alert("Remplis ton pseudo !");
 
     me = pseudo;
@@ -41,17 +39,11 @@
     showMain();
   };
 
-  window.logout = () => {
-    me = null;
-    localStorage.removeItem('soiree_pseudo');
-    location.reload();
-  };
-
   function showMain() {
-    authCard.style.display = 'none';
-    mainCard.style.display = 'block';
+    document.getElementById('authZone').style.display = 'none';
+    document.getElementById('appZone').style.display = 'block';
     document.getElementById('welcome').textContent = `Salut ${me} ! 👋`;
-    document.getElementById('myVoteLabel').textContent = myVoteText();
+    render();
   }
 
   function myVoteText() {
@@ -87,6 +79,7 @@
   onValue(ref(db, 'votes'), snap => { votes = snap.val() || {}; render(); });
 
   function render() {
+    if (!me) return; // pas connecté → on n'affiche rien
     const list = document.getElementById('themeList');
     list.innerHTML = '';
     const entries = Object.entries(themes).sort((a, b) => count(b[0]) - count(a[0]));
@@ -137,7 +130,7 @@
   .delete-btn:hover { color: #e94560; }
   .bar-container { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
   .bar { height: 100%; background: linear-gradient(90deg, #e94560, #ffd369); transition: width 0.4s; }
-  #main { display: none; }
+  #appZone { display: none; }
   #welcome { font-size: 1em; color: #ffd369; margin-bottom: 8px; }
   #myVoteLabel { font-size: 0.9em; color: #ccc; margin-bottom: 15px; }
 </style>
@@ -146,28 +139,29 @@
 <div class="container">
   <h1>🎉 Vote du Thème de Soirée</h1>
 
-  <!-- Connexion -->
-  <div class="card" id="auth">
+  <!-- Zone pseudo (disparaît après connexion) -->
+  <div class="card" id="authZone">
     <h2>🔑 Qui es-tu ?</h2>
-    <p style="color:#ccc; font-size:0.9em; margin-bottom:12px;">Entre ton pseudo pour voter. Un seul vote par personne, modifiable à tout moment !</p>
+    <p style="color:#ccc; font-size:0.9em; margin-bottom:12px;">Entre ton pseudo pour voir les thèmes et voter. Un seul vote par personne, modifiable à tout moment !</p>
     <input type="text" id="pseudoInput" placeholder="Ton pseudo (ex : Julie)" onkeydown="if(event.key==='Enter')login()">
     <button onclick="login()">Entrer 🚀</button>
   </div>
 
-  <!-- App principale -->
-  <div class="card" id="main">
+  <!-- App principale (apparaît juste après) -->
+  <div id="appZone">
     <div id="welcome"></div>
     <div id="myVoteLabel"></div>
-    <div style="text-align:right; margin-bottom:10px;">
-      <button style="background:transparent; border:1px solid #666; font-size:0.8em;" onclick="logout()">Changer d'utilisateur</button>
+
+    <div class="card">
+      <h2>💡 Proposer un thème</h2>
+      <input type="text" id="themeInput" placeholder="Ex : Soirée années 80 🕺">
+      <button onclick="propose()">Proposer</button>
     </div>
 
-    <h2>💡 Proposer un thème</h2>
-    <input type="text" id="themeInput" placeholder="Ex : Soirée années 80 🕺">
-    <button onclick="propose()">Proposer</button>
-
-    <h2 style="margin-top:25px;">🗳 Les thèmes</h2>
-    <div id="themeList"></div>
+    <div class="card">
+      <h2>🗳 Les thèmes</h2>
+      <div id="themeList"></div>
+    </div>
   </div>
 </div>
 </body>
