@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vote Thème de Soirée</title>
+<script type="module">
+  // ====== IMPORTS FIREBASE (via CDN) ======
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set, remove, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyB-Hv3dU-vuB8U0IAk3AUdIiqv1Ykmn4x8",
+    authDomain: "nouvelan-a256f.firebaseapp.com",
+    databaseURL: "https://nouvelan-a256f-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "nouvelan-a256f",
+    storageBucket: "nouvelan-a256f.firebasestorage.app",
+    messagingSenderId: "312028300581",
+    appId: "1:312028300581:web:f2f53dc6f57523dc5d06cc"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // ====== ÉTAT ======
+  let themes = {};       // { themeId: { name, owner } }
+  let votes = {};        // { pseudo: themeId }
+  let me = localStorage.getItem('soiree_pseudo') || null;
+
+  const authCard = document.getElementById('auth');
+  const mainCard = document.getElementById('main');
+
+  // ====== CONNEXION ======
+  window.login = async () => {
+    const pseudo = document.getElementById('pseudoInput').value.trim();
+    const pin = document.getElementById('pinInput').value.trim();
+    if (!pseudo || !pin) return alert("Remplis ton pseudo et un code PIN !");
+
+    const userSnap = await get(child(ref(db), `users/${pseudo}`));
+    if (userSnap.exists() && userSnap.val() !== pin) {
+      return alert("Ce pseudo est déjà pris avec un autre PIN. Réessaye !");
+    }
+    if (!userSnap.exists()) await set(ref(db, `users/${pseudo}`), pin);
+
+    me = pseudo;
+    localStorage.setItem('soiree_pseudo', pseudo);
+    showMain();
+  };
+
+  window.logout = () => {
+    me = null;
+    localStorage.removeItem('soiree_pseudo');
+    location.reload();
+  };
+
+  function showMain() {
+    authCard.style.display = 'none';
+    mainCard.style.display = 'block';
+    document.getElementById('welcome').textContent = `Salut ${me} ! 👋`;
+    document.getElementById('myVoteLabel').textContent = myVoteText();
+  }
+
+  function myVoteText() {
+    if (!votes[me]) return "Tu n'as pas encore voté.";
+    const t = themes[votes[me]];
+    return `Ton vote actuel : ${t ? `"${t.name}"` : "(thème supprimé)"} — tu peux le changer quand tu veux !`;
+  }
+
+  // ====== PROPOSER UN THÈME ======
+  window.propose = async () => {
+    const input = document.getElementById('themeInput');
+    const name = input.value.trim();
+    if (!name) return;
+    await set(ref(db, 'themes/' + Date.now()), { name: name, owner: me });
+    input.value = '';
+  };
+
+  // ====== VOTER ======
+  window.vote = (id) => {
+    set(ref(db, `votes/${me}`), id);
+  };
+
+  // ====== SUPPRIMER UN THÈME (seulement le sien) ======
+  window.deleteTheme = async (id) => {
+    const t = themes[id];
+    if (!t) return;
+    if (!confirm(`Supprimer le thème "${t.name}" ?`)) return;
+    await remove(ref(db, 'themes/' + id));
+  };
+
+  // ====== ÉCOUTE TEMPS RÉEL ======
+  onValue(ref(db, 'themes'), snap => { themes = snap.val() || {}; render(); });
+  onValue(ref(db, 'votes'), snap => { votes = snap.val() || {}; render(); });
+
+  function render() {
+    const list = document.getElementById('themeList');
+    list.innerHTML = '';
+    const entries = Object.entries(themes).sort((a, b) => count(b[0]) - count(a[0]));
+    const max = Math.max(1, ...entries.map(([, t]) => count(t[0])));
+
+    entries.forEach(([id, t]) => {
+      const c = count(id);
+      const div = document.createElement('div');
+      div.className = 'theme-item' + (votes[me] === id ? ' voted' : '');
+      div.innerHTML = `
+        <span class="theme-name">${t.name}</span>
+        <span class="votes">${c} vote${c > 1 ? 's' : ''}</span>
+        <button class="vote-btn ${votes[me] === id ? 'active' : ''}" onclick="vote('${id}')">
+          ${votes[me] === id ? '✓ Mon vote' : 'Voter'}
+        </button>
+        ${t.owner === me ? `<button class="delete-btn" onclick="deleteTheme('${id}')">🗑</button>` : ''}
+        <div class="bar-container"><div class="bar" style="width:${c / max * 100}%"></div></div>
+      `;
+      list.appendChild(div);
+    });
+    document.getElementById('myVoteLabel').textContent = myVoteText();
+  }
+
+  function count(id) {
+    return Object.values(votes).filter(v => v === id).length;
+  }
+
+  // ====== INIT ======
+  if (me) {
+    get(child(ref(db), `users/${me}`)).then(snap => {
+      if (snap.exists()) showMain();
+      else { me = null; localStorage.removeItem('soiree_pseudo'); }
+    });
+  }
+</script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1a1a2e, #16213e); min-height: 100vh; color: #fff; padding: 20px; }
+  .container { max-width: 600px; margin: 0 auto; }
+  h1 { text-align: center; margin-bottom: 25px; font-size: 1.7em; }
+  h2 { margin-bottom: 12px; font-size: 1.15em; }
+  .card { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  input[type="text"], input[type="password"] { width: 100%; padding: 12px; border-radius: 8px; border: none; margin-bottom: 10px; font-size: 1em; }
+  button { background: #e94560; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 0.95em; transition: 0.2s; }
+  button:hover { background: #ff6b81; }
+  .theme-item { display: flex; align-items: center; gap: 10px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .theme-item.voted { border: 2px solid #e94560; }
+  .theme-name { flex: 1; font-weight: 600; min-width: 120px; }
+  .votes { font-weight: bold; color: #ffd369; }
+  .vote-btn { background: transparent; border: 2px solid #e94560; }
+  .vote-btn.active { background: #e94560; }
+  .delete-btn { background: transparent; color: #aaa; }
+  .delete-btn:hover { color: #e94560; }
+  .bar-container { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+  .bar { height: 100%; background: linear-gradient(90deg, #e94560, #ffd369); transition: width 0.4s; }
+  #main { display: none; }
+  #welcome { font-size: 1em; color: #ffd369; margin-bottom: 8px; }
+  #myVoteLabel { font-size: 0.9em; color: #ccc; margin-bottom: 15px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎉 Vote du Thème de Soirée</h1>
+
+  <!-- Connexion -->
+  <div class="card" id="auth">
+    <h2>🔑 Qui es-tu ?</h2>
+    <p style="color:#ccc; font-size:0.9em; margin-bottom:12px;">Choisis ton pseudo et un code PIN (si le pseudo existe déjà, mets le bon PIN). Un seul vote par personne !</p>
+    <input type="text" id="pseudoInput" placeholder="Ton pseudo (ex : Julie)">
+    <input type="password" id="pinInput" placeholder="Ton code PIN (ex : 1234)">
+    <button onclick="login()">Entrer 🚀</button>
+  </div>
+
+  <!-- App principale -->
+  <div class="card" id="main">
+    <div id="welcome"></div>
+    <div id="myVoteLabel"></div>
+    <div style="text-align:right; margin-bottom:10px;">
+      <button style="background:transparent; border:1px solid #666; font-size:0.8em;" onclick="logout()">Changer d'utilisateur</button>
+    </div>
+
+    <h2>💡 Proposer un thème</h2>
+    <input type="text" id="themeInput" placeholder="Ex : Soirée années 80 🕺">
+    <button onclick="propose()">Proposer</button>
+
+    <h2 style="margin-top:25px;">🗳 Les thèmes</h2>
+    <div id="themeList"></div>
+  </div>
+</div>
+</body>
+</html>
