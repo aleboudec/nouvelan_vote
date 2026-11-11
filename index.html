@@ -7,7 +7,7 @@
 <script type="module">
   // ====== IMPORTS FIREBASE (via CDN) ======
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue, set, remove, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   // Your web app's Firebase configuration
   const firebaseConfig = {
@@ -32,16 +32,9 @@
   const mainCard = document.getElementById('main');
 
   // ====== CONNEXION ======
-  window.login = async () => {
+  window.login = () => {
     const pseudo = document.getElementById('pseudoInput').value.trim();
-    const pin = document.getElementById('pinInput').value.trim();
-    if (!pseudo || !pin) return alert("Remplis ton pseudo et un code PIN !");
-
-    const userSnap = await get(child(ref(db), `users/${pseudo}`));
-    if (userSnap.exists() && userSnap.val() !== pin) {
-      return alert("Ce pseudo est déjà pris avec un autre PIN. Réessaye !");
-    }
-    if (!userSnap.exists()) await set(ref(db, `users/${pseudo}`), pin);
+    if (!pseudo) return alert("Remplis ton pseudo !");
 
     me = pseudo;
     localStorage.setItem('soiree_pseudo', pseudo);
@@ -122,12 +115,7 @@
   }
 
   // ====== INIT ======
-  if (me) {
-    get(child(ref(db), `users/${me}`)).then(snap => {
-      if (snap.exists()) showMain();
-      else { me = null; localStorage.removeItem('soiree_pseudo'); }
-    });
-  }
+  if (me) showMain();
 </script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -136,7 +124,7 @@
   h1 { text-align: center; margin-bottom: 25px; font-size: 1.7em; }
   h2 { margin-bottom: 12px; font-size: 1.15em; }
   .card { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-  input[type="text"], input[type="password"] { width: 100%; padding: 12px; border-radius: 8px; border: none; margin-bottom: 10px; font-size: 1em; }
+  input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: none; margin-bottom: 10px; font-size: 1em; }
   button { background: #e94560; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 0.95em; transition: 0.2s; }
   button:hover { background: #ff6b81; }
   .theme-item { display: flex; align-items: center; gap: 10px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -161,9 +149,8 @@
   <!-- Connexion -->
   <div class="card" id="auth">
     <h2>🔑 Qui es-tu ?</h2>
-    <p style="color:#ccc; font-size:0.9em; margin-bottom:12px;">Choisis ton pseudo et un code PIN (si le pseudo existe déjà, mets le bon PIN). Un seul vote par personne !</p>
-    <input type="text" id="pseudoInput" placeholder="Ton pseudo (ex : Julie)">
-    <input type="password" id="pinInput" placeholder="Ton code PIN (ex : 1234)">
+    <p style="color:#ccc; font-size:0.9em; margin-bottom:12px;">Entre ton pseudo pour voter. Un seul vote par personne, modifiable à tout moment !</p>
+    <input type="text" id="pseudoInput" placeholder="Ton pseudo (ex : Julie)" onkeydown="if(event.key==='Enter')login()">
     <button onclick="login()">Entrer 🚀</button>
   </div>
 
